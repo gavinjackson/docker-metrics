@@ -1,0 +1,64 @@
+version: "3.8"
+services:
+    prometheus:
+        image: prom/prometheus:latest
+        container_name: prometheus
+        ports:
+            - 9090:9090
+        command:
+            - --config.file=/etc/prometheus/prometheus.yml
+        volumes:
+            - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+            - ./docker/prometheus/data:/prometheus/data:rw
+        depends_on:
+            - cadvisor
+            - node-exporter
+        networks:
+            - znet
+
+    cadvisor:
+        image: gcr.io/google-containers/cadvisor:latest
+        container_name: cadvisor
+        ports:
+            - 8090:8080
+        volumes:
+            - /:/rootfs:ro
+            - /var/run:/var/run:rw
+            - /sys:/sys:ro
+            - /var/lib/docker/:/var/lib/docker:ro
+        networks:
+            - znet
+            
+    node-exporter:
+        image: prom/node-exporter:latest
+        container_name: monitoring_node_exporter
+        restart: unless-stopped
+        expose:
+            - 9100
+        networks:
+            - znet
+
+    grafana:
+        image: grafana/grafana:latest
+        container_name: monitoring_grafana
+        ports:
+            - 3000:3000
+        restart: unless-stopped
+        volumes:
+            - ./docker/grafana/data:/var/lib/grafana
+            - ./docker/grafana/provisioning:/etc/grafana/provisioning
+            - ./docker/grafana/dashboards:/var/lib/grafana/dashboards
+        depends_on:
+            - prometheus
+        environment:
+            - GF_SECURITY_ADMIN_PASSWORD=password
+            - GF_USERS_ALLOW_SIGN_UP=false
+        networks:
+            - znet
+
+# https://blog.alejandrocelaya.com/2017/04/21/set-specific-ip-addresses-to-docker-containers-created-with-docker-compose/
+networks:
+    znet:
+        ipam:
+            config:
+                - subnet: 192.168.35.0/24
